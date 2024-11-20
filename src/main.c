@@ -36,59 +36,88 @@ int create_server_socket() {
 }
 
 void handle_client(int client_fd) {
-    u_int8_t type;
+    uint8_t type;
 
-    if (recv(client_fd, type, 1, 0) <= 0) {
-        
-    }
-
-
-    char *buffer = malloc(INITIAL_BUFFER_SIZE);
-    if (buffer == NULL) {
-        perror("Memory allocation failed");
+    if (recv(client_fd, type, sizeof(type), 0) <= 0) {
+        perror("Nothing received");
         close(client_fd);
         return;
     }
 
-    size_t buffer_size = INITIAL_BUFFER_SIZE;
-    ssize_t bytes_received;
-    size_t total_received = 0;
+    int8_t status;
 
-    while (1) {
-        bytes_received = recv(client_fd, buffer + total_received, buffer_size - total_received - 1, 0);
-        if (bytes_received <= 0) {
+    switch (type) {
+        case 1:
+            status = method_register(client_fd);
             break;
-        }
-
-        total_received += bytes_received;
-        buffer[total_received] = '\0';
-
-        if (strchr(buffer, '\n') != NULL) {
+        case 2:
+            status = method_update(client_fd);
             break;
-        }
-
-        if (total_received == buffer_size - 1) {
-            buffer_size *= 2;
-            buffer = realloc(buffer, buffer_size);
-            if (buffer == NULL) {
-                perror("Reallocation failed");
-                close(client_fd);
-                return;
-            }
-        }
+        case 3:
+            // query
+            break;
+        default:
+            break;
     }
 
-    printf("Received full message: %s", buffer);
-
-    const char *response = "Message received!";
+    const char *response = "OK";
     send(client_fd, response, strlen(response), 0);
-
-    free(buffer);
-    close(client_fd);
 }
 
-void serve_client(int client_fd, char buffer[]) {
+int8_t method_register(int client_fd) {
+    char* username;
+    if ((username = parse_string_with_size(client_fd)) == NULL) return -1;
+    char* rsa_public_key;
+    if ((rsa_public_key = parse_string_with_size(client_fd)) == NULL) return -1;
 
+    // database logic
+
+    return 0;
+}
+
+int8_t method_update(int client_fd) {
+    char* username;
+    if ((username = parse_string_with_size(client_fd)) == NULL) return -1;
+    
+    char signed_ip_port[7];
+    if (recv(client_fd, signed_ip_port, 6, 0) <= 0) {
+        perror("Nothing received");
+        close(client_fd);
+        return -1;
+    }
+
+    signed_ip_port[6] = '\0';
+
+    // rsa decrypt with public key
+
+    return 0;
+}
+
+
+
+char* parse_string_with_size(int client_fd) {
+    uint32_t len;
+    char* string;
+
+    if (recv(client_fd, &len, sizeof(len), 0) <= 0) {
+        perror("Nothing received");
+        close(client_fd);
+        return NULL;
+    }
+
+    len = ntohl(len);
+
+    string = malloc(len + 1);
+
+    if (recv(client_fd, string, sizeof(string), 0) <= 0) {
+        perror("Nothing received");
+        close(client_fd);
+        return NULL;
+    }
+
+    string[len] = '\0';
+
+    return string;
 }
 
 int main(int argc, char* argv[]) {
